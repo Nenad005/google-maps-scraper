@@ -17,6 +17,7 @@ url = f'https://www.google.com/maps/search/{encoded_query}'
 
 options = Options()
 options.add_argument('--disable-dev-shm-usage')
+options.add_argument('--headless')
 driver = webdriver.Chrome(service=Service(executable_path="chromedriver.exe"), options=options)
 driver.maximize_window()
 
@@ -37,9 +38,9 @@ def scroll_to_bottom(driver, scrool_selector, parent_selector, scroll_method = '
 def get_result_links():
     driver.get(url)
 
-    # scroll_to_bottom(driver, 
-    #                  'document.querySelector("#QA0Szd > div > div > div.w6VYqd > div:nth-child(2) > div > div.e07Vkf.kA9KIf > div > div > div.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd > div.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd")',
-    #                  'document.querySelector("#QA0Szd > div > div > div.w6VYqd > div:nth-child(2) > div > div.e07Vkf.kA9KIf > div > div > div.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd > div.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd")')
+    scroll_to_bottom(driver, 
+                     'document.querySelector("#QA0Szd > div > div > div.w6VYqd > div:nth-child(2) > div > div.e07Vkf.kA9KIf > div > div > div.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd > div.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd")',
+                     'document.querySelector("#QA0Szd > div > div > div.w6VYqd > div:nth-child(2) > div > div.e07Vkf.kA9KIf > div > div > div.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd > div.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd")')
     
     els = driver.find_elements(By.CSS_SELECTOR, "div[role = 'feed'] > div > div > a")
     links = [x.get_attribute('href') for x in els]
