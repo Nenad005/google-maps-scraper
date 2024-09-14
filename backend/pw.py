@@ -3,7 +3,23 @@ from datetime import date
 import re
 from playwright.async_api import async_playwright
 import urllib
-import json
+from tinydb import TinyDB, Query
+
+db = TinyDB('db.json')
+Lead = Query()
+
+async def insert_lead(id: str, gm_url: str, title: str, rating: dict | None, category: str | None, website: str | None, phone: str | None, hours : list | None):
+    lead = db.search(Lead.id == id)
+    try:
+        if lead:
+            db.update({'title': title, 'rating' : rating, 'category': category, 'website': website, 'phone': phone, 'hours': hours}, Lead.id == id)
+            return 1
+        else:
+            db.insert({'id': id, 'gm_url': gm_url, 'title': title, 'rating': rating, 'category': category, 'website': website, 'phone': phone, 'hours': hours, 'status': 'idle'})
+            return 0
+    except Exception as e:
+        print(e)
+        return -1
 
 # scroll to the bottom of the bussines listings or when the limit is reached
 async def scroll_to_bottom(page, scroll_selector: str, parent_selector: str, limit : int, scroll_method: str = 'scrollBy(0, 2000)'):
@@ -53,13 +69,15 @@ async def scrape_data_from_link(url, browser):
     
     titleEl = await page.query_selector('h1')
     title = await titleEl.inner_text() if titleEl else None
+    if not title:
+        return -1
 
     ratingEls = await page.query_selector_all('div.F7nice > span')
     rating = (await ratingEls[0].inner_text()).replace(",", ".") if ratingEls else None
     nratings = (await ratingEls[1].inner_text()).replace("(", "").replace(")", "").replace(".", "") if ratingEls else None
 
     websiteEl = await page.query_selector("a[data-item-id='authority']")
-    website = await websiteEl.inner_text() if websiteEl else None
+    website = await websiteEl.get_attribute('href') if websiteEl else None
 
     phoneEl = await page.query_selector("xpath=//button[starts-with(@data-item-id,'phone')]")
     phone = (await phoneEl.get_attribute('data-item-id')).replace("phone:tel:", "") if phoneEl else None
@@ -75,8 +93,8 @@ async def scrape_data_from_link(url, browser):
             fr = hours.pop(0)
             hours.append(fr)
 
-    res = dict(
-        gm_id=id,
+    status = await insert_lead(
+        id=id,
         gm_url=url,
         title=title,
         rating=dict(
@@ -86,50 +104,37 @@ async def scrape_data_from_link(url, browser):
         category=category,
         website=website,
         phone=phone,
-        hours=hours
+        hours=hours,
     )
 
-    print(f"Done scraping {title}")
-
-    # with open(f'./test/{title}.json', 'w', encoding='utf-8') as f:
-    #     f.write(json.dumps(res, ensure_ascii=False))
+    if status == 0:
+        print(f"[DONE] - Inserted {title}")
+    if status == 1:
+        print(f"[DONE] - Updated {title}")
+    if status == -1:
+        return status
 
     await page.close()
-    return res
-
-# async def scrape_data(query_str : str):
-#     links = await scrape_links(query_str)
-#     # tasks = []
-#     # for i in range(len(links)):
-#     #     tasks.append(scrape_data_from_link(links[i]))
-#     #     if (i % 3) == 0:
-#     #         await asyncio.gather(*tasks)
-#     #         print("Done 3")
-#     #         tasks = []
-#     tasks = [scrape_data_from_link(url) for url in links]
-#     results = await asyncio.gather(*tasks)
-#     print(results)
-#     input()
+    return 0
 
 async def scrape_data(query_str: str, limit : int):
     links = await scrape_links(query_str, limit)
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         batch_size = 10  # Control the number of simultaneous tasks
-        results = []
+        # results = []
 
         for i in range(0, len(links), batch_size):
             tasks = [scrape_data_from_link(links[j], browser) for j in range(i, min(i + batch_size, len(links)))]
-            results.extend(await asyncio.gather(*tasks))
+            # results.extend(await asyncio.gather(*tasks))
+            await asyncio.gather(*tasks)
 
         await browser.close()
-        with open("result.json", 'w', encoding="utf-8") as f:
-            f.write(json.dumps(results, indent=4, ensure_ascii=False))
-
+        # with open("result.json", 'w', encoding="utf-8") as f:
+        #     f.write(json.dumps(results, indent=4, ensure_ascii=False))
 
 # Entry point to run the scraping tasks
 if __name__ == '__main__':
-    # asyncio.run(scrape_data_from_link('''https://www.google.com/maps/place/%D0%9A%D0%BB%D1%83%D0%B1-%D0%B8%D0%B3%D1%80%D0%B0%D0%BE%D0%BD%D0%B8%D1%86%D0%B0+%D0%A1%D1%86%D0%B5%D0%BD%D0%B0/data=!4m7!3m6!1s0x475a6f7011a9a6bd:0xb23dcdb3b0a58330!8m2!3d44.8093256!4d20.3805368!16s%2Fg%2F11bw2hqg1n!19sChIJvaapEXBvWkcRMIOlsLPNPbI?authuser=0&hl=sr&rclk=1'''))
     query = input("Search query : ")
     limit = int(input("Limit results : "))
     asyncio.run(scrape_data(query, limit))
