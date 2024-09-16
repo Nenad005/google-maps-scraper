@@ -1,13 +1,12 @@
 import asyncio
 from datetime import date
 import re
-from flask import Flask, Response
 from playwright.async_api import async_playwright
 import urllib
 from tinydb import TinyDB, Query
+
 db = TinyDB('db.json')
 Lead = Query()
-app = Flask(__name__)
 
 async def insert_lead(id: str, gm_url: str, title: str, rating: dict | None, category: str | None, website: str | None, phone: str | None, hours : list | None):
     lead = db.search(Lead.id == id)
@@ -109,11 +108,9 @@ async def scrape_data_from_link(url, browser):
     )
 
     if status == 0:
-        # print(f"[DONE] - Inserted {title}")
-        return (f"[DONE] - Inserted {title}")
+        print(f"[DONE] - Inserted {title}")
     if status == 1:
-        # print(f"[DONE] - Updated {title}")
-        return (f"[DONE] - Updated {title}")
+        print(f"[DONE] - Updated {title}")
     if status == -1:
         return status
 
@@ -121,9 +118,7 @@ async def scrape_data_from_link(url, browser):
     return 0
 
 async def scrape_data(query_str: str, limit : int):
-    yield f"data: Strating the scraper . . .\n"
     links = await scrape_links(query_str, limit)
-    yield f"data: Scraped links : {links}\n"
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         batch_size = 10  # Control the number of simultaneous tasks
@@ -131,24 +126,15 @@ async def scrape_data(query_str: str, limit : int):
 
         for i in range(0, len(links), batch_size):
             tasks = [scrape_data_from_link(links[j], browser) for j in range(i, min(i + batch_size, len(links)))]
-            for completed in asyncio.as_completed(tasks):
-                res = await completed
-                print(res)
-                yield f'data: {res}\n'
+            # results.extend(await asyncio.gather(*tasks))
+            await asyncio.gather(*tasks)
 
         await browser.close()
-
-@app.route('/scrape')
-def scrape():
-    async def scr():
-        return Response(scrape_data('laboratorija u beograd', 100), mimetype='text/event-stream')
-    response = asyncio.run(scr)
-    return response
-
+        # with open("result.json", 'w', encoding="utf-8") as f:
+        #     f.write(json.dumps(results, indent=4, ensure_ascii=False))
 
 # Entry point to run the scraping tasks
 if __name__ == '__main__':
-    # query = input("Search query : ")
-    # limit = int(input("Limit results : "))
-    # asyncio.run(scrape_data(query, limit))
-    app.run(debug=True)
+    query = input("Search query : ")
+    limit = int(input("Limit results : "))
+    asyncio.run(scrape_data(query, limit))
