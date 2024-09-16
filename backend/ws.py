@@ -5,10 +5,12 @@ from flask import Flask, Response
 from playwright.async_api import async_playwright
 import urllib
 from tinydb import TinyDB, Query
+
 db = TinyDB('db.json')
 Lead = Query()
 app = Flask(__name__)
 
+# Insert or update lead in TinyDB
 async def insert_lead(id: str, gm_url: str, title: str, rating: dict | None, category: str | None, website: str | None, phone: str | None, hours : list | None):
     lead = db.search(Lead.id == id)
     try:
@@ -22,7 +24,7 @@ async def insert_lead(id: str, gm_url: str, title: str, rating: dict | None, cat
         print(e)
         return -1
 
-# scroll to the bottom of the bussines listings or when the limit is reached
+# Scroll to the bottom of the business listings or when the limit is reached
 async def scroll_to_bottom(page, scroll_selector: str, parent_selector: str, limit : int, scroll_method: str = 'scrollBy(0, 2000)'):
     previous_child_count = 0
     no_new_child_count = 0
@@ -35,7 +37,7 @@ async def scroll_to_bottom(page, scroll_selector: str, parent_selector: str, lim
         # Get the current number of children
         current_child_count = await page.evaluate(f'''{parent_selector}.children.length''')
         
-        if current_child_count > limit + 2: # break the loop if the number of element exceeds the limit
+        if current_child_count > limit + 2: # break the loop if the number of elements exceeds the limit
             break
 
         if current_child_count > previous_child_count:
@@ -45,8 +47,8 @@ async def scroll_to_bottom(page, scroll_selector: str, parent_selector: str, lim
             
         previous_child_count = current_child_count
 
-#get the links of all bussiness thah willbe scraped
-async def scrape_links(query : str, limit : int):
+# Get the links of all businesses that will be scraped
+async def scrape_links(query: str, limit: int):
     encoded_query = urllib.parse.quote_plus(query)
     url = f'https://www.google.com/maps/search/{encoded_query}'
 
@@ -55,13 +57,15 @@ async def scrape_links(query : str, limit : int):
         page = await browser.new_page()
         await page.goto(url)
         await scroll_to_bottom(page, 
-                     'document.querySelector("#QA0Szd > div > div > div.w6VYqd > div:nth-child(2) > div > div.e07Vkf.kA9KIf > div > div > div.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd > div.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd")',
-                     'document.querySelector("#QA0Szd > div > div > div.w6VYqd > div:nth-child(2) > div > div.e07Vkf.kA9KIf > div > div > div.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd > div.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd")',
-                     limit)
-        bussines_elements = await page.query_selector_all("div[role = 'feed'] > div > div > a")
-        bussines_links = [await x.get_attribute('href') for x in bussines_elements]
-        return bussines_links
+            'document.querySelector("#QA0Szd > div > div > div.w6VYqd > div:nth-child(2) > div > div.e07Vkf.kA9KIf > div > div > div.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd > div.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd")',
+            'document.querySelector("#QA0Szd > div > div > div.w6VYqd > div:nth-child(2) > div > div.e07Vkf.kA9KIf > div > div > div.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd > div.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd")',
+            limit)
+        business_elements = await page.query_selector_all("div[role = 'feed'] > div > div > a")
+        business_links = [await x.get_attribute('href') for x in business_elements]
+        await browser.close()
+        return business_links
 
+# Scrape data from a business link
 async def scrape_data_from_link(url, browser):
     id = re.findall(r'\/data.*\?', url)[0].replace('/data=', '').replace('?', '')
 
@@ -108,47 +112,59 @@ async def scrape_data_from_link(url, browser):
         hours=hours,
     )
 
+    await page.close()
+
     if status == 0:
-        # print(f"[DONE] - Inserted {title}")
-        return (f"[DONE] - Inserted {title}")
+        return f"[DONE] - Inserted {title}"
     if status == 1:
-        # print(f"[DONE] - Updated {title}")
-        return (f"[DONE] - Updated {title}")
+        return f"[DONE] - Updated {title}"
     if status == -1:
         return status
 
-    await page.close()
     return 0
 
-async def scrape_data(query_str: str, limit : int):
-    yield f"data: Strating the scraper . . .\n"
+# Main scraper function
+async def scrape_data(query_str: str, limit: int):
+    yield "data: Starting the scraper...\n"
     links = await scrape_links(query_str, limit)
-    yield f"data: Scraped links : {links}\n"
+    yield f"data: Scraped links: {links}\n"
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         batch_size = 10  # Control the number of simultaneous tasks
-        # results = []
 
         for i in range(0, len(links), batch_size):
             tasks = [scrape_data_from_link(links[j], browser) for j in range(i, min(i + batch_size, len(links)))]
             for completed in asyncio.as_completed(tasks):
                 res = await completed
-                print(res)
                 yield f'data: {res}\n'
 
         await browser.close()
 
+# Wrapper to run async code and yield results for Flask
+def run_scraper(query_str: str, limit: int):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    # Coroutine that collects the results and yields them
+    async def collect_results():
+        async for value in scrape_data(query_str, limit):
+            yield value
+
+    # Use a helper to run the async generator in a sync context
+    for value in loop.run_until_complete(to_sync_generator(collect_results())):
+        yield value
+
+# Helper function to convert async generator into sync generator
+async def to_sync_generator(async_gen):
+    results = []
+    async for value in async_gen:
+        results.append(value)
+    return results
+
 @app.route('/scrape')
 def scrape():
-    async def scr():
-        return Response(scrape_data('laboratorija u beograd', 100), mimetype='text/event-stream')
-    response = asyncio.run(scr)
-    return response
-
+    return Response(run_scraper('laboratorija u beograd', 100), mimetype='text/plain')
 
 # Entry point to run the scraping tasks
 if __name__ == '__main__':
-    # query = input("Search query : ")
-    # limit = int(input("Limit results : "))
-    # asyncio.run(scrape_data(query, limit))
     app.run(debug=True)
