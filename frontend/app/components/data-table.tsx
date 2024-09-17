@@ -1,8 +1,19 @@
 "use client"
 
 import {
+  CheckCircledIcon,
+  CircleIcon,
+  CrossCircledIcon,
+  StopwatchIcon,
+} from "@radix-ui/react-icons"
+
+import {
   ColumnDef,
   flexRender,
+  SortingState,
+  ColumnFiltersState,
+  getSortedRowModel,
+  getFilteredRowModel,
   getCoreRowModel,
   useReactTable,
   getPaginationRowModel
@@ -16,26 +27,59 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
+import React from "react"
+import { DataTablePagination } from "./data-table-pagination"
+import { DataTableToolbar } from "./data-table-toolbar"
 
-interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<TData, TValue>[]
-  data: TData[]
-}
+export function DataTable<TData, TValue>({columns,data, categories}) {
+  const [sorting, setSorting] = React.useState<SortingState>([])
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
+    []
+  )
 
-export function DataTable<TData, TValue>({
-  columns,
-  data,
-}: DataTableProps<TData, TValue>) {
   const table = useReactTable({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel()
+    getPaginationRowModel: getPaginationRowModel(),
+    onSortingChange: setSorting,
+    getSortedRowModel: getSortedRowModel(),
+    onColumnFiltersChange: setColumnFilters,
+    getFilteredRowModel: getFilteredRowModel(),
+    state: {
+      sorting,
+      columnFilters
+    }
   })
 
+  const statuses = [
+		{
+			value: "idle",
+			label: "Idle",
+			icon: CircleIcon,
+		},
+		{
+			value: "in progress",
+			label: "In Progress",
+			icon: StopwatchIcon,
+		},
+		{
+			value: "done",
+			label: "Done",
+			icon: CheckCircledIcon,
+		},
+		{
+			value: "canceled",
+			label: "Canceled",
+			icon: CrossCircledIcon,
+		},
+	]
+
   return <>
-    <div className="rounded-md border">
+    <div className="py-6">
+      <DataTableToolbar table={table} statuses={statuses} categories={categories}></DataTableToolbar>
+    </div>
+    <div className=" rounded-[--radius] bg-background ">
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -49,6 +93,7 @@ export function DataTable<TData, TValue>({
                           header.column.columnDef.header,
                           header.getContext()
                         )}
+                    <div className="resizer"></div>
                   </TableHead>
                 )
               })}
@@ -80,17 +125,8 @@ export function DataTable<TData, TValue>({
       </Table>
       
     </div>
-    <div>
-      <Button 
-        variant="outline"
-        size="sm"
-        disabled={!table.getCanPreviousPage()}
-        onClick={() => table.previousPage()}>Prev</Button>
-      <Button 
-        variant="outline"
-        size="sm"
-        disabled={!table.getCanNextPage()}
-        onClick={() => table.nextPage()}>Next</Button>
-  </div>
+    <div className="pt-6">
+      <DataTablePagination table={table}/>
+    </div>
   </>
 }
