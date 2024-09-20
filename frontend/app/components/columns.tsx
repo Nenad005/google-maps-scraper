@@ -2,7 +2,15 @@
 
 import { Button } from "@/components/ui/button"
 import { ColumnDef } from "@tanstack/react-table"
-import { stat } from "fs"
+import { MoreHorizontal } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { ArrowUpDown } from "lucide-react"
 
 import {
@@ -12,6 +20,14 @@ import {
 	StopwatchIcon,
   } from "@radix-ui/react-icons"
 import capitalizeFirstLetter from "../capitalize"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { useRef, useState } from "react"
+import { useMediaQuery } from "react-responsive"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 
 // This type is used to define the shape of our data.
 // You can use a Zod schema here if you want.
@@ -34,7 +50,7 @@ const status_to_icon = (status) => {
 			return StopwatchIcon
 		case 'done':
 			return CheckCircledIcon
-		case 'cancled':
+		case 'canceled':
 			return CrossCircledIcon
 		default:
 			return -1
@@ -45,7 +61,7 @@ const status_icon = {
 	"idle": CircleIcon,
 	"in progress": StopwatchIcon,
 	"done": CheckCircledIcon,
-	"cancled": CrossCircledIcon
+	"canceled": CrossCircledIcon
 }
 
 const categoryFilterFn = (row, columnId, filterValue) => {
@@ -121,6 +137,199 @@ export const columns: ColumnDef<Payment>[] = [
 			const phone = row.getValue("phone")
 	
 			return <a className="text-left font-medium" href={`tel:${phone}`} target="_blank">{`${phone}`}</a>
+		},
+	},
+	{
+		id: "actions",
+		cell: ({ row }) => {
+			const title = row.getValue('title')
+			const category = row.getValue('category')
+			const website = row.getValue('website')
+			const phone = row.getValue('phone')
+			const status = row.getValue('status')
+			const id = row.getValue('id')
+			const [isDialogOpen, setIsDialogOpen] = useState(false)
+
+			const statuses = [
+				{
+					value: "idle",
+					label: "Idle",
+					icon: CircleIcon,
+				},
+				{
+					value: "in progress",
+					label: "In Progress",
+					icon: StopwatchIcon,
+				},
+				{
+					value: "done",
+					label: "Done",
+					icon: CheckCircledIcon,
+				},
+				{
+					value: "canceled",
+					label: "Canceled",
+					icon: CrossCircledIcon,
+				},
+			]
+			function ComboBoxResponsive({selectedStatus, setSelectedStatus}) {
+				const [open, setOpen] = useState(false)
+				const isDesktop = useMediaQuery({ query: "(min-width: 768px)"})
+
+			   
+				if (isDesktop) {
+				  return (
+					<Popover open={open} onOpenChange={setOpen}>
+					  <PopoverTrigger asChild>
+						<Button variant="outline" className="w-[150px] justify-start">
+						  {selectedStatus ? <div className="flex gap-2 items-center"><selectedStatus.icon></selectedStatus.icon>{selectedStatus.label}</div> : <>+ Set status</>}
+						</Button>
+					  </PopoverTrigger>
+					  <PopoverContent className="w-[200px] p-0" align="start">
+						<StatusList setOpen={setOpen} setSelectedStatus={setSelectedStatus} />
+					  </PopoverContent>
+					</Popover>
+				  )
+				}
+			   
+				return (
+				  <Drawer open={open} onOpenChange={setOpen}>
+					<DrawerTrigger asChild>
+					  <Button variant="outline" className="w-[150px] justify-start">
+						{selectedStatus ? <>{selectedStatus.label}</> : <>+ Set status</>}
+					  </Button>
+					</DrawerTrigger>
+					<DrawerContent>
+					  <div className="mt-4 border-t">
+						<StatusList setOpen={setOpen} setSelectedStatus={setSelectedStatus} />
+					  </div>
+					</DrawerContent>
+				  </Drawer>
+				)
+			  }
+			   
+			  function StatusList({
+				setOpen,
+				setSelectedStatus,
+			  }: {
+				setOpen: (open: boolean) => void
+				setSelectedStatus: (status) => void
+			  }) {
+				return (
+				  <Command>
+					{/* <CommandInput placeholder="Filter status..." /> */}
+					<CommandList>
+					  <CommandEmpty>No results found.</CommandEmpty>
+					  <CommandGroup>
+						{statuses.map((status) => (
+						  <CommandItem
+							key={status.value}
+							value={status.value}
+							onSelect={(value) => {
+							  setSelectedStatus(
+								statuses.find((priority) => priority.value === value) || null
+							  )
+							  setOpen(false)
+							}}
+							className="flex gap-2"
+						  >
+							<status.icon></status.icon>
+							{status.label}
+						  </CommandItem>
+						))}
+					  </CommandGroup>
+					</CommandList>
+				  </Command>
+				)
+			  }
+			const [selectedStatus, setSelectedStatus] = useState({
+				value: status,
+				label: capitalizeFirstLetter(status),
+				icon: status_icon[status]
+			})
+
+			let titleRef = useRef(null)
+			let categoryRef = useRef(null)
+			let websiteRef = useRef(null)
+			let phoneRef = useRef(null)
+		
+			return <>
+				<DropdownMenu>
+					<DropdownMenuTrigger asChild>
+					<Button variant="ghost" className="h-8 w-8 p-0">
+						<span className="sr-only">Open menu</span>
+						<MoreHorizontal className="h-4 w-4" />
+					</Button>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent align="end">
+					<DropdownMenuLabel>Actions</DropdownMenuLabel>
+					<DropdownMenuItem onClick={() => {setIsDialogOpen(true)}}>
+						Edit entry
+					</DropdownMenuItem>
+					</DropdownMenuContent>
+				</DropdownMenu>
+				<Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+					<DialogContent>
+						<DialogHeader>
+							<DialogTitle>Edit entry</DialogTitle>
+							<DialogDescription>
+								Make changes to this entru. Click save when you`re done.
+							</DialogDescription>
+						</DialogHeader>
+							<div className="grid gap-4 py-4">
+								<div className="grid grid-cols-4 items-center gap-4">
+									<Label htmlFor="name" className="text-right">
+										Title
+									</Label>
+									<Input ref={titleRef} id="title" defaultValue={title} className="col-span-3"/>
+								</div>
+								<div className="grid grid-cols-4 items-center gap-4">
+									<Label htmlFor="username" className="text-right">
+										Category
+									</Label>
+									<Input ref={categoryRef} id="category" defaultValue={category} className="col-span-3"/>
+								</div>
+								<div className="grid grid-cols-4 items-center gap-4">
+									<Label htmlFor="name" className="text-right">
+										Website
+									</Label>
+									<Input ref={websiteRef} id="website" defaultValue={website} className="col-span-3"/>
+								</div>
+								<div className="grid grid-cols-4 items-center gap-4">
+									<Label htmlFor="name" className="text-right">
+										Phone
+									</Label>
+									<Input ref={phoneRef} id="phone" defaultValue={phone} className="col-span-3"/>
+								</div>
+								<div className="grid grid-cols-4 items-center gap-4">
+									<Label htmlFor="name" className="text-right">
+										Status
+									</Label>
+									<ComboBoxResponsive selectedStatus={selectedStatus}
+									 setSelectedStatus={setSelectedStatus}></ComboBoxResponsive>
+								</div>
+							</div>
+							<DialogFooter>
+								<Button type="submit" onClick={() => {
+									const updated_lead = {
+										title : titleRef.current.value,
+										category : categoryRef.current.value,
+										website : websiteRef.current.value,
+										phone : phoneRef.current.value,
+										status : selectedStatus.value
+									}
+									fetch(encodeURI(`http://localhost:5000/leads/${id}`), {
+										method: "PUT",
+										headers: { 
+											'Content-type': 'application/json'
+										}, 
+										body: JSON.stringify(updated_lead)
+									}).then((data) => {console.log(data)}).then(() => location.reload())
+								}}>Save changes</Button>
+							</DialogFooter>
+					</DialogContent>
+				</Dialog>
+			</>
 		},
 	},
 ]

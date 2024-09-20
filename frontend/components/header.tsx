@@ -9,7 +9,7 @@ export default function Header(){
             <nav className="w-[1280px] flex justify-start items-end py-8 gap-x-5">
                 <a className="flex justify-center items-end gap-5">
                     <Image src={logo} alt="logo image" className="w-10 h-10"></Image>
-                    <h1 className="font-bold text-4xl">GM <span className="tracking-widest">Leads</span></h1>
+                    <h1 className="font-bold text-4xl text-primary">GM <span className="tracking-widest">Leads</span></h1>
                 </a>
                 <h1 className="">Leads</h1>
                 <h1>Statistics</h1>

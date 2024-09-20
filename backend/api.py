@@ -1,8 +1,11 @@
 from flask import Flask, request, jsonify
 import random
 from tinydb import TinyDB, Query
+from flask_cors import CORS, cross_origin
 
 app = Flask(__name__)
+cors = CORS(app)
+app.config['CORS_HEADERS'] = 'Content-Type'
 Lead = Query()
 
 @app.route('/lead/<string:lead_id>', methods=['GET'])

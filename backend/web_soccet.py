@@ -5,6 +5,38 @@ from playwright.async_api import async_playwright
 import urllib
 from tinydb import TinyDB, Query
 
+def cyrillic_to_latin(text, osisana=False):
+    transliteration_map = {
+        '\u0410': 'A', '\u0411': 'B', '\u0412': 'V', '\u0413': 'G', '\u0414': 'D', '\u0402': 'Đ',
+        '\u0415': 'E', '\u0416': 'Ž', '\u0417': 'Z', '\u0418': 'I', '\u0408': 'J', '\u041A': 'K',
+        '\u041B': 'L', '\u0409': 'Lj', '\u041C': 'M', '\u041D': 'N', '\u040A': 'Nj', '\u041E': 'O',
+        '\u041F': 'P', '\u0420': 'R', '\u0421': 'S', '\u0428': 'Š', '\u0422': 'T', '\u040B': 'Ć',
+        '\u0423': 'U', '\u0424': 'F', '\u0425': 'H', '\u0426': 'C', '\u0427': 'Č', '\u040F': 'Dž',
+
+        '\u0430': 'a', '\u0431': 'b', '\u0432': 'v', '\u0433': 'g', '\u0434': 'd', '\u0452': 'đ',
+        '\u0435': 'e', '\u0436': 'ž', '\u0437': 'z', '\u0438': 'i', '\u0458': 'j', '\u043A': 'k',
+        '\u043B': 'l', '\u0459': 'lj', '\u043C': 'm', '\u043D': 'n', '\u045A': 'nj', '\u043E': 'o',
+        '\u043F': 'p', '\u0440': 'r', '\u0441': 's', '\u0448': 'š', '\u0442': 't', '\u045B': 'ć',
+        '\u0443': 'u', '\u0444': 'f', '\u0445': 'h', '\u0446': 'c', '\u0447': 'č', '\u045F': 'dž',
+    }
+    osisana_transliteration_map = {
+        '\u0410': 'A', '\u0411': 'B', '\u0412': 'V', '\u0413': 'G', '\u0414': 'D', '\u0402': 'Dj',
+        '\u0415': 'E', '\u0416': 'Z', '\u0417': 'Z', '\u0418': 'I', '\u0408': 'J', '\u041A': 'K',
+        '\u041B': 'L', '\u0409': 'Lj', '\u041C': 'M', '\u041D': 'N', '\u040A': 'Nj', '\u041E': 'O',
+        '\u041F': 'P', '\u0420': 'R', '\u0421': 'S', '\u0428': 'S', '\u0422': 'T', '\u040B': 'C',
+        '\u0423': 'U', '\u0424': 'F', '\u0425': 'H', '\u0426': 'C', '\u0427': 'C', '\u040F': 'Dz',
+
+        '\u0430': 'a', '\u0431': 'b', '\u0432': 'v', '\u0433': 'g', '\u0434': 'd', '\u0452': 'dj',
+        '\u0435': 'e', '\u0436': 'z', '\u0437': 'z', '\u0438': 'i', '\u0458': 'j', '\u043A': 'k',
+        '\u043B': 'l', '\u0459': 'lj', '\u043C': 'm', '\u043D': 'n', '\u045A': 'nj', '\u043E': 'o',
+        '\u043F': 'p', '\u0440': 'r', '\u0441': 's', '\u0448': 's', '\u0442': 't', '\u045B': 'c',
+        '\u0443': 'u', '\u0444': 'f', '\u0445': 'h', '\u0446': 'c', '\u0447': 'c', '\u045F': 'dz',
+    }
+    if not osisana:
+        return ''.join(transliteration_map.get(char, char) for char in text)
+    return ''.join(osisana_transliteration_map.get(char, char) for char in text)
+
+
 db = TinyDB('db.json')
 Lead = Query()
 
@@ -15,7 +47,7 @@ async def insert_lead(id: str, gm_url: str, title: str, rating: dict | None, cat
             db.update({'title': title, 'rating' : rating, 'category': category, 'website': website, 'phone': phone, 'hours': hours}, Lead.id == id)
             return 1
         else:
-            db.insert({'id': id, 'gm_url': gm_url, 'title': title, 'rating': rating, 'category': category, 'website': website, 'phone': phone, 'hours': hours, 'status': 'idle'})
+            db.insert({'id': id, 'gm_url': gm_url, 'title': title, 'rating': rating, 'category': cyrillic_to_latin(category), 'website': website, 'phone': phone, 'hours': hours, 'status': 'idle'})
             return 0
     except Exception as e:
         print(e)
