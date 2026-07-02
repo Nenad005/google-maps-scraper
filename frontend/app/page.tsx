@@ -2,9 +2,10 @@ import capitalizeFirstLetter from "./capitalize"
 import { Payment, columns } from "./components/columns"
 import { DataTable } from "./components/data-table"
 
+const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:5000"
 
 async function getData(): Promise<Payment[]> {
-	const data = await fetch("http://127.0.0.1:5000/leads", {cache: "no-store"})
+	const data = await fetch(`${backendUrl}/leads`, {cache: "no-store"})
 	const leads = (await data.json()).map((lead) => {
 		return {
 			id : lead.id,
